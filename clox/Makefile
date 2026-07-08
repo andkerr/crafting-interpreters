@@ -1,4 +1,5 @@
-SRCS = main.c compiler.c chunk.c debug.c memory.c object.c scanner.c value.c vm.c
+SRCS = main.c compiler.c chunk.c debug.c memory.c object.c scanner.c \
+	   table.c value.c vm.c
 OBJS = $(SRCS:.c=.o)
 MAIN = clox
 
