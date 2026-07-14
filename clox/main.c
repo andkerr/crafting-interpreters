@@ -1,11 +1,19 @@
+#define _POSIX_C_SOURCE 199309L
+
 #include "chunk.h"
 #include "common.h"
 #include "debug.h"
 #include "vm.h"
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+// static void handle_sigint(int signal) {
+//     (void) signal;
+//     fprintf(stderr, "Keyboard interrupt");
+// }
 
 static char *readFile(const char *path) {
     FILE *file = fopen(path, "rb");
@@ -58,6 +66,11 @@ static void runFile(const char *path) {
 }
 
 int main(int argc, const char *argv[]) {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = SIG_IGN;
+    sigaction(SIGINT, &sa, NULL);
+
     initVM();
 
     if (argc == 1) {
@@ -73,4 +86,3 @@ int main(int argc, const char *argv[]) {
     freeVM();
     return 0;
 }
-
