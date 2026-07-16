@@ -34,7 +34,9 @@ static Value peek(int distance) {
 }
 
 static bool isFalsey(Value value) {
-    return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
+    return IS_NIL(value) ||
+          (IS_BOOL(value) && !AS_BOOL(value)) ||
+          (IS_NUMBER(value) && AS_NUMBER(value) == 0);
 }
 
 static void concatenate() {
@@ -160,6 +162,11 @@ static InterpretResult run() {
             case OP_PRINT: {
                 printValue(pop());
                 printf("\n");
+                break;
+            }
+            case OP_JUMP: {
+                uint16_t offset = READ_SHORT();
+                vm.ip += offset;
                 break;
             }
             case OP_JUMP_IF_FALSE: {

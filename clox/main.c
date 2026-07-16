@@ -10,11 +10,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-// static void handle_sigint(int signal) {
-//     (void) signal;
-//     fprintf(stderr, "Keyboard interrupt");
-// }
-
 static char *readFile(const char *path) {
     FILE *file = fopen(path, "rb");
     if (file == NULL) {
