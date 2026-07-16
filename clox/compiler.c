@@ -12,6 +12,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MAX_SWITCH_CASES 32
+
 typedef struct {
     Token current;
     Token previous;
@@ -112,6 +114,9 @@ ParseRule rules[] = {
     [TOKEN_TRUE]          = { literal, NULL, PREC_NONE },
     [TOKEN_VAR]           = { NULL, NULL, PREC_NONE },
     [TOKEN_WHILE]         = { NULL, NULL, PREC_NONE },
+    [TOKEN_SWITCH]        = { NULL, NULL, PREC_NONE },
+    [TOKEN_CASE]          = { NULL, NULL, PREC_NONE },
+    [TOKEN_DEFAULT]       = { NULL, NULL, PREC_NONE },
     [TOKEN_ERROR]         = { NULL, NULL, PREC_NONE },
     [TOKEN_EOF]           = { NULL, NULL, PREC_NONE },
 };
@@ -392,7 +397,7 @@ static void namedVariable(Token name, bool canAssign) {
         getOp = OP_GET_GLOBAL;
         setOp = OP_SET_GLOBAL;
     }
-    
+
     if (canAssign && match(TOKEN_EQUAL)) {
         expression();
         emitBytes(setOp, (uint8_t)arg);
@@ -575,6 +580,72 @@ static void whileStatement() {
     emitByte(OP_POP);
 }
 
+static int switchCase() {
+    emitBytes(OP_GET_LOCAL, 0);
+    expression();
+    consume(TOKEN_COLON, "Expected ':' after switch case expression");
+
+    emitByte(OP_EQUAL);
+    int nextCaseJump = emitJump(OP_JUMP_IF_FALSE);
+    emitByte(OP_POP);
+
+    while (!check(TOKEN_CASE) && !check(TOKEN_DEFAULT) &&
+           !check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+        statement();
+    }
+
+    int exitJump = emitJump(OP_JUMP);
+
+    patchJump(nextCaseJump);
+
+    emitByte(OP_POP);
+
+    return exitJump;
+}
+
+static void switchStatement() {
+    beginScope();
+
+    consume(TOKEN_LEFT_PAREN, "Expected '(' after 'switch'");
+
+    expression();
+    Token switchLocalTok = { .type = TOKEN_IDENTIFIER,
+                             .start = "__switch_var",
+                             .length = 12,
+                             .line = -1 };
+    addLocal(switchLocalTok);
+    markInitialized();
+
+    consume(TOKEN_RIGHT_PAREN, "Expected ')' after switch expression");
+    consume(TOKEN_LEFT_BRACE, "Expected '{' before switch cases");
+
+    int caseExitJumps[MAX_SWITCH_CASES];
+    int caseCount = 0;
+    while (match(TOKEN_CASE)) {
+        if (!(caseCount < MAX_SWITCH_CASES)) {
+            error("Maximum switch cases exceeded");
+        }
+
+        caseExitJumps[caseCount++] = switchCase();
+    }
+
+    if (match(TOKEN_DEFAULT)) {
+        consume(TOKEN_COLON, "Expected ':' after 'default'");
+
+        while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+            statement();
+        }
+    }
+
+    consume(TOKEN_RIGHT_BRACE, "Expected '}' to match '{'");
+
+    for (int i = 0; i < caseCount; ++i) {
+        patchJump(caseExitJumps[i]);
+    }
+
+    endScope();
+}
+
 static void block() {
     while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
         declaration();
@@ -595,6 +666,9 @@ static void statement() {
     }
     else if (match(TOKEN_WHILE)) {
         whileStatement();
+    }
+    else if (match(TOKEN_SWITCH)) {
+        switchStatement();
     }
     else if (match(TOKEN_LEFT_BRACE)) {
         beginScope();
