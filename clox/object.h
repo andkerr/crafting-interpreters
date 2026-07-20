@@ -2,16 +2,20 @@
 #define CLOX_OBJECT_H
 
 #include "common.h"
+#include "chunk.h"
 #include "value.h"
 
-#define OBJ_TYPE(value)   (AS_OBJ(value)->type)
+#define OBJ_TYPE(value)    (AS_OBJ(value)->type)
 
-#define IS_STRING(value)  isObjType(value, OBJ_STRING)
+#define IS_FUNCTION(value) isObjType(value, OBJ_FUNCTION)
+#define IS_STRING(value)   isObjType(value, OBJ_STRING)
 
-#define AS_STRING(value)  ((ObjString *)AS_OBJ(value))
-#define AS_CSTRING(value) (((ObjString *)AS_OBJ(value))->chars)
+#define AS_FUNCTION(value) ((ObjFunction *)AS_OBJ(value))
+#define AS_STRING(value)   ((ObjString *)AS_OBJ(value))
+#define AS_CSTRING(value)  (((ObjString *)AS_OBJ(value))->chars)
 
 typedef enum {
+    OBJ_FUNCTION,
     OBJ_STRING,
 } ObjType;
 
@@ -20,7 +24,12 @@ struct Obj {
     struct Obj *next;
 };
 
-void printObject(Value value);
+struct ObjFunction {
+    Obj obj;
+    int arity;
+    Chunk chunk;
+    ObjString *name;
+};
 
 struct ObjString {
     Obj obj;
@@ -29,11 +38,15 @@ struct ObjString {
     char chars[];
 };
 
+ObjFunction *newFunction();
+
 ObjString *takeString(char *chars, int length);
 ObjString *copyString(const char *chars, int length);
 
 static inline bool isObjType(Value value, ObjType type) {
     return IS_OBJ(value) && AS_OBJ(value)->type == type;
 }
+
+void printObject(Value value);
 
 #endif

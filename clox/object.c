@@ -9,6 +9,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+static void printFunction(ObjFunction *function) {
+    printf("<fn %s>", function->name == NULL
+        ? "<script>" : function->name->chars);
+}
+
 static uint32_t hashString(const char *key, int length) {
     uint32_t hash = 2166136361u;
     for (int i = 0; i < length; ++i) {
@@ -29,6 +34,8 @@ static Obj *allocateObject(size_t size, ObjType type) {
 
 static ObjString *allocateString(const char *chars, int length,
                                  uint32_t hash) {
+    // compute size manually, since 'chars' is a VLA and we probably need
+    // more memory than sizeof(ObjString)
     size_t sz = sizeof(ObjString) + (length + 1) * sizeof(char);
     ObjString *string = (ObjString *)allocateObject(sz, OBJ_STRING);
     string->length = length;
@@ -37,6 +44,14 @@ static ObjString *allocateString(const char *chars, int length,
     string->chars[length] = '\0';
     tableSet(&vm.strings, string, NIL_VAL);
     return string;
+}
+
+ObjFunction *newFunction() {
+    ObjFunction *function = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
+    function->arity = 0;
+    function->name = NULL;
+    initChunk(&function->chunk);
+    return function;
 }
 
 // precondition: chars is heap-allocated using reallocate
@@ -67,6 +82,9 @@ ObjString *copyString(const char *chars, int length) {
 
 void printObject(Value value) {
     switch (OBJ_TYPE(value)) {
+        case OBJ_FUNCTION:
+            printFunction(AS_FUNCTION(value));
+            break;
         case OBJ_STRING:
             printf("%s", AS_CSTRING(value));
             break;

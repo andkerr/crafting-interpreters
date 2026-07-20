@@ -6,7 +6,16 @@
 
 static void freeObject(Obj *object) {
     switch (object->type) {
+        case OBJ_FUNCTION: {
+            ObjFunction *function = ObjFunction *object;
+            freeChunk(&function->chunk);
+            FREE(ObjFunction, object);
+            break;
+        }
         case OBJ_STRING: {
+            // TODO: This is technically incorrect now that ObjString uses
+            //       a VLA for its character buffer, since free assumes all
+            //       ObjStrings occupy sizeof(ObjString) bytes
             FREE(ObjString, object);
             break;
         }

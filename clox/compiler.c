@@ -48,7 +48,15 @@ typedef struct {
     int depth;
 } Local;
 
+typedef enum {
+    TYPE_FUNCTION,
+    TYPE_SCRIPT,
+} FunctionType;
+
 typedef struct {
+    ObjFunction *function;
+    FunctionType type;
+
     Local locals[UINT8_COUNT];
     int localCount;
     int scopeDepth;
@@ -122,7 +130,7 @@ ParseRule rules[] = {
 };
 
 static Chunk *currentChunk() {
-    return compilingChunk;
+    return &current->function->chunk;
 }
 
 static void errorAt(Token *token, const char *message) {
@@ -580,45 +588,19 @@ static void whileStatement() {
     emitByte(OP_POP);
 }
 
-static int switchCase() {
-    emitBytes(OP_GET_LOCAL, 0);
-    expression();
-    consume(TOKEN_COLON, "Expected ':' after switch case expression");
-
-    emitByte(OP_EQUAL);
-    int nextCaseJump = emitJump(OP_JUMP_IF_FALSE);
-    emitByte(OP_POP);
-
-    while (!check(TOKEN_CASE) && !check(TOKEN_DEFAULT) &&
-           !check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
-        statement();
-    }
-
-    int exitJump = emitJump(OP_JUMP);
-
-    patchJump(nextCaseJump);
-
-    emitByte(OP_POP);
-
-    return exitJump;
-}
-
 static void switchStatement() {
     beginScope();
 
     consume(TOKEN_LEFT_PAREN, "Expected '(' after 'switch'");
-
     expression();
-    Token switchLocalTok = { .type = TOKEN_IDENTIFIER,
-                             .start = "__switch_var",
-                             .length = 12,
-                             .line = -1 };
-    addLocal(switchLocalTok);
-    markInitialized();
-
+    int switchLocalIdx = current->localsCount++;
+    Local local* = &current->locals[switchLocalIdx];
+    local->depth = current->scopeDepth;
+    local->name.start = "";
+    local->name.length = 0;
     consume(TOKEN_RIGHT_PAREN, "Expected ')' after switch expression");
-    consume(TOKEN_LEFT_BRACE, "Expected '{' before switch cases");
 
+    consume(TOKEN_LEFT_BRACE, "Expected '{' before switch cases");
     int caseExitJumps[MAX_SWITCH_CASES];
     int caseCount = 0;
     while (match(TOKEN_CASE)) {
@@ -626,7 +608,24 @@ static void switchStatement() {
             error("Maximum switch cases exceeded");
         }
 
-        caseExitJumps[caseCount++] = switchCase();
+        emitBytes(OP_GET_LOCAL, switchLocalIdx);
+        expression();
+        consume(TOKEN_COLON, "Expected ':' after switch case expression");
+
+        emitByte(OP_EQUAL);
+        int nextCaseJump = emitJump(OP_JUMP_IF_FALSE);
+        emitByte(OP_POP);
+
+        while (!check(TOKEN_CASE) && !check(TOKEN_DEFAULT) &&
+               !check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+            statement();
+        }
+
+        caseExitJumps[caseCount++] = emitJump(OP_JUMP);
+
+        patchJump(nextCaseJump);
+
+        emitByte(OP_POP);
     }
 
     if (match(TOKEN_DEFAULT)) {
@@ -636,7 +635,6 @@ static void switchStatement() {
             statement();
         }
     }
-
     consume(TOKEN_RIGHT_BRACE, "Expected '}' to match '{'");
 
     for (int i = 0; i < caseCount; ++i) {
@@ -714,25 +712,36 @@ static void declaration() {
     if (parser.panicMode) synchronize();
 }
 
-static void endCompiler() {
+static ObjFunction *endCompiler() {
     emitReturn();
+    ObjFunction *function = current->function;
+
 #ifdef DEBUG_PRINT_CODE
     if (!parser.hadError) {
-        disassembleChunk(currentChunk(), "code");
+        disassembleChunk(currentChunk(), function->name == NULL
+            ? "<script>" : function->name->chars);
     }
 #endif
+
+    return function;
 }
 
 static void initCompiler(Compiler *compiler) {
+    compiler->function = NULL;
+    compiler->type = type;
     compiler->localCount = 0;
     compiler->scopeDepth = 0;
+    compiler->function = newFunction();
     current = compiler;
+
+    Local *local = &current->locals[current->localCount++];
+    local->depth = 0
 }
 
 bool compile(const char *source, Chunk *chunk) {
     initScanner(source);
     Compiler compiler;
-    initCompiler(&compiler);
+    initCompiler(&compiler, TYPE_SCRIPT);
     compilingChunk = chunk;
 
     parser.hadError = false;
