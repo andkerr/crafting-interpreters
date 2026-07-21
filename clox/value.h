@@ -4,7 +4,9 @@
 #include "common.h"
 
 typedef struct Obj Obj;
+typedef struct ObjNative ObjNative;
 typedef struct ObjString ObjString;
+typedef struct ObjClosure ObjClosure;
 typedef struct ObjFunction ObjFunction;
 
 typedef enum {

@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 static char *readFile(const char *path) {
     FILE *file = fopen(path, "rb");
@@ -60,19 +61,36 @@ static void runFile(const char *path) {
     if (result == INTERPRET_RUNTIME_ERROR) exit(70);
 }
 
-int main(int argc, const char *argv[]) {
+int main(int argc, char **argv) {
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = SIG_IGN;
     sigaction(SIGINT, &sa, NULL);
 
+    bool interactive = false;
+    int o;
+    while ((o = getopt(argc, argv, "i")) != -1) {
+        switch (o) {
+            case 'i':
+                interactive = true;
+                break;
+            default:
+                break;
+        }
+    }
+    argc -= optind;
+    argv += optind;
+
     initVM();
 
-    if (argc == 1) {
+    if (argc == 0) {
         repl();
     }
-    else if (argc == 2) {
-        runFile(argv[1]);
+    else if (argc == 1) {
+        runFile(argv[0]);
+        if (interactive) {
+            repl();
+        }
     }
     else {
         fprintf(stderr, "usage: clox [progfile]\n");
