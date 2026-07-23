@@ -1,5 +1,7 @@
 #include "debug.h"
 
+#include "object.h"
+
 #include <stdio.h>
 
 static int simpleInstruction(const char *name, int offset) {
@@ -87,6 +89,10 @@ int disassembleInstruction(const Chunk *chunk, int offset) {
                                        false);
         case OP_SET_GLOBAL:
             return constantInstruction("OP_SET_GLOBAL", chunk, offset, false);
+        case OP_GET_UPVALUE:
+            return byteInstruction("OP_GET_UPVALUE", chunk, offset);
+        case OP_SET_UPVALUE:
+            return byteInstruction("OP_SET_UPVALUE", chunk, offset);
         case OP_EQUAL:
             return simpleInstruction("OP_EQUAL", offset);
         case OP_GREATER:
@@ -121,6 +127,15 @@ int disassembleInstruction(const Chunk *chunk, int offset) {
             printf("%-16s %4d ", "OP_CLOSURE", constant);
             printValue(chunk->constants.values[constant]);
             printf("\n");
+
+            ObjFunction *function = AS_FUNCTION(chunk->constants.values[constant]);
+            for (int _ = 0; _ < function->upvalueCount; ++_) {
+                int isLocal = chunk->code[offset++];
+                int index = chunk->code[offset++];
+                printf("%04d      |                   %s %d\n",
+                       offset - 2, isLocal ? "local" : "upvalue", index);
+            }
+
             return offset;
         }
         case OP_RETURN:

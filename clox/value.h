@@ -4,10 +4,11 @@
 #include "common.h"
 
 typedef struct Obj Obj;
-typedef struct ObjNative ObjNative;
-typedef struct ObjString ObjString;
-typedef struct ObjClosure ObjClosure;
 typedef struct ObjFunction ObjFunction;
+typedef struct ObjNative ObjNative;
+typedef struct ObjUpvalue ObjUpvalue;
+typedef struct ObjClosure ObjClosure;
+typedef struct ObjString ObjString;
 
 typedef enum {
     VAL_BOOL,
