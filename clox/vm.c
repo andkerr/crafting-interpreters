@@ -31,6 +31,7 @@ struct {
 static void resetStack() {
     vm.stackTop = vm.stack;
     vm.frameCount = 0;
+    vm.openUpvalues = NULL;
 }
 
 static void runtimeError(const char *format, ...) {
@@ -122,8 +123,38 @@ static bool callValue(Value callee, int argCount) {
 }
 
 static ObjUpvalue *captureUpvalue(Value *local) {
+    ObjUpvalue *prev = NULL;
+    ObjUpvalue *curr = vm.openUpvalues;
+    while (curr != NULL && curr->location > local) {
+        prev = curr;
+        curr = curr->next;
+    }
+
+    if (curr != NULL && curr->location == local) {
+        return curr;
+    }
+
     ObjUpvalue *upvalue = newUpvalue(local);
+    upvalue->next = curr;
+
+    if (prev == NULL) {
+        vm.openUpvalues = upvalue;
+    }
+    else {
+        prev->next = upvalue;
+    }
+
     return upvalue;
+}
+
+// Move all stack values at or "past" last onto the heap
+static void closeUpvalues(Value *last) {
+    for (ObjUpvalue *upvalue = vm.openUpvalues;
+         upvalue != NULL && upvalue->location >= last;
+         upvalue = upvalue->next) {
+        upvalue->closed = *upvalue->location;
+        upvalue->location = &upvalue->closed;
+    }
 }
 
 static bool isFalsey(Value value) {
@@ -309,8 +340,14 @@ static InterpretResult run() {
                 }
                 break;
             }
+            case OP_CLOSE_UPVALUE: {
+                closeUpvalues(vm.stackTop - 1);
+                pop();
+                break;
+            }
             case OP_RETURN: {
                 Value result = pop();
+                closeUpvalues(frame->slots);
                 if (--vm.frameCount == 0) {
                     pop();
                     return INTERPRET_OK;
