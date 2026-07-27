@@ -26,8 +26,11 @@ typedef enum {
     OBJ_STRING,
 } ObjType;
 
+const char *ObjType_str(ObjType type);
+
 struct Obj {
     ObjType type;
+    bool isMarked;
     struct Obj *next;
 };
 

@@ -30,8 +30,12 @@ static uint32_t hashString(const char *key, int length) {
 static Obj *allocateObject(size_t size, ObjType type) {
     Obj *object = (Obj *)reallocate(NULL, 0, size);
     object->type = type;
+    object->isMarked = false;
     object->next = vm.objects;
     vm.objects = object;
+#ifdef DEBUG_LOG_GC
+    printf("%p allocate %zu for %s\n", (void*)object, size, ObjType_str(type));
+#endif
     return object;
 }
 
@@ -45,8 +49,27 @@ static ObjString *allocateString(const char *chars, int length,
     string->hash = hash;
     memcpy(string->chars, chars, length);
     string->chars[length] = '\0';
+    push(OBJ_VAL(string));
     tableSet(&vm.strings, string, NIL_VAL);
+    pop();
     return string;
+}
+
+const char *ObjType_str(ObjType type) {
+    switch (type) {
+        case OBJ_FUNCTION:
+            return "OBJ_FUNCTION";
+        case OBJ_NATIVE:
+            return "OBJ_NATIVE";
+        case OBJ_CLOSURE:
+            return "OBJ_CLOSURE";
+        case OBJ_UPVALUE:
+            return "OBJ_UPVALUE";
+        case OBJ_STRING:
+            return "OBJ_STRING";
+        default:
+            return "?";
+    }
 }
 
 ObjFunction *newFunction() {
