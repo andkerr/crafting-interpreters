@@ -14,7 +14,7 @@
 
 static void freeObject(Obj *object) {
 #ifdef DEBUG_LOG_GC
-    printf("%p free type %s\n", (void *)object, ObjType_str(object->type));
+    printf("%p free type %s\n", (void *)object, ObjTypeName(object->type));
 #endif
     switch (object->type) {
         case OBJ_FUNCTION: {
@@ -31,6 +31,16 @@ static void freeObject(Obj *object) {
             ObjClosure *closure = (ObjClosure *)object;
             FREE_ARRAY(ObjUpvalue *, closure->upvalues, closure->upvalueCount);
             FREE(ObjClosure, object);
+            break;
+        }
+        case OBJ_CLASS: {
+            FREE(ObjClass, object);
+            break;
+        }
+        case OBJ_INSTANCE: {
+            ObjInstance *instance = (ObjInstance *)object;
+            freeTable(&instance->fields);
+            FREE(ObjInstance, object);
             break;
         }
         case OBJ_UPVALUE: {
@@ -100,6 +110,17 @@ static void blackenObject(Obj *object) {
             }
             break;
         }
+        case OBJ_CLASS: {
+            ObjClass *klass = (ObjClass *)object;
+            markObject((Obj *)klass->name);
+            break;
+        }
+        case OBJ_INSTANCE: {
+            ObjInstance *instance = (ObjInstance *)object;
+            markObject((Obj *)instance->klass);
+            markTable(&instance->fields);
+            break;
+        }
     }
 }
 
@@ -154,7 +175,7 @@ void *reallocate(void *data, size_t oldSize, size_t newSize) {
     if (result == NULL) {
         exit(1);
     }
-    
+
     return result;
 }
 

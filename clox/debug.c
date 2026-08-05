@@ -59,7 +59,7 @@ int disassembleInstruction(const Chunk *chunk, int offset) {
         printf("   | ");
     }
     else {
-        printf("%4d ", chunk->lines[offset]); 
+        printf("%4d ", chunk->lines[offset]);
     }
 
     uint8_t instruction = chunk->code[offset];
@@ -93,6 +93,10 @@ int disassembleInstruction(const Chunk *chunk, int offset) {
             return byteInstruction("OP_GET_UPVALUE", chunk, offset);
         case OP_SET_UPVALUE:
             return byteInstruction("OP_SET_UPVALUE", chunk, offset);
+        case OP_GET_PROPERTY:
+            return constantInstruction("OP_GET_PROPERTY", chunk, offset, false);
+        case OP_SET_PROPERTY:
+            return constantInstruction("OP_SET_PROPERTY", chunk, offset, false);
         case OP_EQUAL:
             return simpleInstruction("OP_EQUAL", offset);
         case OP_GREATER:
@@ -142,6 +146,8 @@ int disassembleInstruction(const Chunk *chunk, int offset) {
             return simpleInstruction("OP_CLOSE_UPVALUE", offset);
         case OP_RETURN:
             return simpleInstruction("OP_RETURN", offset);
+        case OP_CLASS:
+            return simpleInstruction("OP_CLASS", offset);
         default:
             printf("Unknown opcode %d\n", instruction);
             return offset + 1;

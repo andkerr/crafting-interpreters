@@ -34,7 +34,7 @@ static Obj *allocateObject(size_t size, ObjType type) {
     object->next = vm.objects;
     vm.objects = object;
 #ifdef DEBUG_LOG_GC
-    printf("%p allocate %zu for %s\n", (void*)object, size, ObjType_str(type));
+    printf("%p allocate %zu for %s\n", (void*)object, size, ObjTypeName(type));
 #endif
     return object;
 }
@@ -55,7 +55,7 @@ static ObjString *allocateString(const char *chars, int length,
     return string;
 }
 
-const char *ObjType_str(ObjType type) {
+const char *ObjTypeName(ObjType type) {
     switch (type) {
         case OBJ_FUNCTION:
             return "OBJ_FUNCTION";
@@ -109,6 +109,19 @@ ObjClosure *newClosure(ObjFunction *function) {
     return closure;
 }
 
+ObjClass *newClass(ObjString *name) {
+    ObjClass *klass = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);
+    klass->name = name;
+    return klass;
+}
+
+ObjInstance *newInstance(ObjClass *klass) {
+    ObjInstance *instance = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
+    instance->klass = klass;
+    initTable(&instance->fields);
+    return instance;
+}
+
 // precondition: chars is heap-allocated using reallocate
 ObjString *takeString(char *chars, int length) {
     uint32_t hash = hashString(chars, length);
@@ -145,6 +158,12 @@ void printObject(Value value) {
             break;
         case OBJ_CLOSURE:
             printFunction(AS_CLOSURE(value)->function);
+            break;
+        case OBJ_CLASS:
+            printf("%s", AS_CLASS(value)->name->chars);
+            break;
+        case OBJ_INSTANCE:
+            printf("%s instance", AS_INSTANCE(value)->klass->name->chars);
             break;
         case OBJ_UPVALUE:
             printf("upvalue");
